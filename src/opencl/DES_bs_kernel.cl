@@ -308,9 +308,7 @@ inline void cmp( __private unsigned DES_bs_vector *B,
 	  volatile __global uint *output,
 	  int section) {
 
-
 	int value[2] , mask, i, bit;
-
 
 	for(i = 0; i < num_loaded_hash; i++) {
 
@@ -326,14 +324,12 @@ inline void cmp( __private unsigned DES_bs_vector *B,
 			mask |= B[bit] ^ -((value[1] >> (bit & 0x1F)) & 1);
 			mask |= B[bit + 1] ^ -((value[1] >> ((bit + 1) & 0x1F)) & 1);
 
-			if (mask == ~(int)0) goto next_hash;
+			//if (mask == ~(int)0) break;
 		}
 
-		atomic_max( &output[i],section + 1) ;
-
-	next_hash: ;
+		if (mask != ~(int)0)
+			atomic_max(&output[i], section + 1);
 	}
-
 }
 #undef GET_BIT
 
@@ -1132,11 +1128,13 @@ __kernel void DES_bs_25_b( constant uint *index768
 #endif
 		int iterations, rounds_and_swapped;
 
-		long int k=0, i;
+		long int k = 0, i;
 
-		if (DES_bs_all[section].keys_changed)
-			goto finalize_keys;
-body:
+		if (DES_bs_all[section].keys_changed) {
+			DES_bs_all[section].keys_changed = 0;
+			DES_bs_finalize_keys(section, DES_bs_all, local_offset_K, _local_K);
+		}
+
 		{
 			vtype zero = vzero;
 			DES_bs_clear_block
@@ -1157,14 +1155,37 @@ body:
 
 		barrier(CLK_LOCAL_MEM_FENCE);
 #endif
-
+/*
 start:
 		loop_body();
 
 		if (rounds_and_swapped > 0) goto start;
 		k -= (0x300 + 48);
 		rounds_and_swapped = 0x108;
-		if (--iterations) goto swap;
+		if (--iterations) goto swap;*/
+
+for (iterations = 24; iterations >= 0; iterations--) {
+		for (k = 0; k < 768; k += 96) {
+			H1();
+			H2();
+		}
+		for (i = 0; i < 32 && iterations; i++) {
+			tmp = B[i];
+			B[i] = B[i + 32];
+			B[i + 32] = tmp;
+		}
+}
+
+
+/*		if (--iterations) {
+			for (i = 0; i < 32; i++){
+				tmp = B[i];
+				B[i] = B[i + 32];
+				B[i + 32] = tmp;
+			}
+			goto start;
+		}*/
+
 
 		cmp(B, binary, num_loaded_hash, output, section);
 
@@ -1179,7 +1200,7 @@ start:
 			B_global[global_offset_B + i] = (DES_bs_vector)B[i] ;
 
 		return;
-
+/*
 swap:
 		H2();
 		k += 96;
@@ -1189,11 +1210,7 @@ next:
 		k -= (0x300 - 48);
 		rounds_and_swapped = 8;
 		iterations--;
-		goto start;
+		goto start;*/
 
-finalize_keys:
-		DES_bs_all[section].keys_changed = 0;
-	        DES_bs_finalize_keys(section, DES_bs_all, local_offset_K, _local_K);
-		goto body;
 }
 #endif
