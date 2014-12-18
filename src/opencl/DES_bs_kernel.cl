@@ -1155,62 +1155,36 @@ __kernel void DES_bs_25_b( constant uint *index768
 
 		barrier(CLK_LOCAL_MEM_FENCE);
 #endif
-/*
+
 start:
 		loop_body();
 
 		if (rounds_and_swapped > 0) goto start;
 		k -= (0x300 + 48);
 		rounds_and_swapped = 0x108;
-		if (--iterations) goto swap;*/
-
-for (iterations = 24; iterations >= 0; iterations--) {
-		for (k = 0; k < 768; k += 96) {
-			H1();
-			H2();
-		}
-		for (i = 0; i < 32 && iterations; i++) {
-			tmp = B[i];
-			B[i] = B[i + 32];
-			B[i + 32] = tmp;
-		}
-}
-
-
-/*		if (--iterations) {
-			for (i = 0; i < 32; i++){
-				tmp = B[i];
-				B[i] = B[i + 32];
-				B[i + 32] = tmp;
-			}
-			goto start;
-		}*/
-
+		if (--iterations) goto swap;
 
 		cmp(B, binary, num_loaded_hash, output, section);
 
-		tmp = 0 ;
+		tmp = 0;
 		for (i = 0; i < num_loaded_hash; i++) {
-				tmp = tmp | output[i];
-			if(tmp) break ;
+			tmp = tmp | output[i];
+			if (tmp) break;
 		}
 
-		if(tmp || (!num_loaded_hash))
+		if (tmp || (!num_loaded_hash))
+
 		for (i = 0; i < 64; i++)
 			B_global[global_offset_B + i] = (DES_bs_vector)B[i] ;
-
 		return;
-/*
 swap:
 		H2();
 		k += 96;
 		if (--rounds_and_swapped) goto start;
-
 next:
 		k -= (0x300 - 48);
 		rounds_and_swapped = 8;
 		iterations--;
-		goto start;*/
-
+		goto start;
 }
 #endif
